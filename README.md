@@ -23,7 +23,7 @@ This project builds a forecasting system that aims to keep **deep‑learning‑l
   A neural decision forest layer with soft, probabilistic splits and trainable leaf predictions, giving rule‑like explanations and feature importance while being trained with backpropagation. [attached_file:2]
 
 - **Multi‑horizon forecasting**  
-  The model outputs 1‑, 5‑, and 20‑step‑ahead forecasts in a shared architecture to capture dependencies across horizons. [attached_file:1]
+  The model outputs 1‑, 5‑, and 20‑step‑ahead forecasts in a shared architecture to capture dependencies across horizons. 
 
 ---
 
