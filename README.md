@@ -20,7 +20,7 @@ This project builds a forecasting system that aims to keep **deep‑learning‑l
   It retains neighbor‑based explanations (“this forecast is influenced by these specific past periods”). 
 
 - **Differentiable Tree Ensemble Layer**  
-  A neural decision forest layer with soft, probabilistic splits and trainable leaf predictions, giving rule‑like explanations and feature importance while being trained with backpropagation. [attached_file:2]
+  A neural decision forest layer with soft, probabilistic splits and trainable leaf predictions, giving rule‑like explanations and feature importance while being trained with backpropagation. 
 
 - **Multi‑horizon forecasting**  
   The model outputs 1‑, 5‑, and 20‑step‑ahead forecasts in a shared architecture to capture dependencies across horizons. 
