@@ -23,3 +23,22 @@ class TemporalPCA:
         self.total_var = np.sum(self.var_exp)
         
         return self
+    
+    def transform(self, X):
+        if not self.fitted:
+            raise RuntimeError("PCA not fitted. Call fit() with training data first.")
+        return self.pca.transform(X)
+    
+    def fit_transform(self, X_train):
+        self.fit(X_train)
+        return self.transform(X_train)
+    
+    def get_loadings(self):
+        if not self.fitted:
+            return None
+        return self.pca.components_
+    
+    def inverse(self, X_pca):
+        if not self.fitted:
+            raise RuntimeError("PCA not fitted.")
+        return self.pca.inverse_transform(X_pca)
