@@ -1,4 +1,4 @@
-# NN‑kNN Financial Forecasting
+# NN‑kNN + Tree Ensemble Layer for Financial Forecasting
 
 Hybrid, interpretable multi‑horizon forecasting for financial and economic time series using Neural Network k‑NN and differentiable tree ensembles.
 
