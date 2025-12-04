@@ -54,3 +54,18 @@ class RollingNormalizer:
             norm[:, f] = col
             
         return norm, start
+
+    def verify_no_lookahead(self):
+        start = 0 if self.use_expand else self.win_sz
+        
+        for i, max_used in enumerate(self.max_ts_used):
+            t = i + start
+            if max_used >= t:
+                return False
+        return True
+    
+    def get_stats_at(self, idx):
+        if idx < 0 or idx >= len(self.stats):
+            return None
+        return self.stats[idx]
+    
