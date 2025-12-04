@@ -96,3 +96,80 @@ def calc_returns(ts, periods):
             rets[t - max_p - 1, i] = (ts[idx_end] - ts[idx_start]) / (ts[idx_start] + 1e-10)
     
     return rets
+
+class FeatureBuilder:
+    def __init__(self, ma_periods=[7, 30, 90], rsi_p=14, macd_cfg=(12, 26, 9),
+                 vol_p=20, lags=[1, 2, 5, 10, 20], ret_periods=[1, 5, 20]):
+        self.ma_periods = ma_periods
+        self.rsi_p = rsi_p
+        self.macd_cfg = macd_cfg
+        self.vol_p = vol_p
+        self.lags = lags
+        self.ret_periods = ret_periods
+        
+        self.min_len = max(
+            max(ma_periods),
+            rsi_p + 1,
+            macd_cfg[1] + macd_cfg[2],
+            vol_p + 1,
+            max(lags),
+            max(ret_periods) + 1
+        ) + 10
+        
+        self.feat_names = []
+    
+    def build(self, ts):
+        n = len(ts)
+        if n < self.min_len:
+            raise ValueError(f"Need at least {self.min_len} points, got {n}")
+        
+        mas = {}
+        for p in self.ma_periods:
+            mas[p] = calc_ma(ts, p)
+        
+        rsi = calc_rsi(ts, self.rsi_p)
+        macd, macd_sig, macd_hist = calc_macd(ts, *self.macd_cfg)
+        vol = calc_volatility(ts, self.vol_p)
+        lag_feats = calc_lags(ts, self.lags)
+        rets = calc_returns(ts, self.ret_periods)
+        
+        lens = [len(mas[p]) for p in self.ma_periods]
+        lens.extend([len(rsi), len(macd), len(vol), len(lag_feats), len(rets)])
+        common_len = min(lens)
+        
+        self.feat_names = []
+        feat_list = []
+        
+        for p in self.ma_periods:
+            feat_list.append(mas[p][-common_len:])
+            self.feat_names.append(f'ma_{p}')
+        
+        feat_list.append(rsi[-common_len:])
+        self.feat_names.append('rsi')
+        
+        feat_list.append(macd[-common_len:])
+        self.feat_names.append('macd')
+        feat_list.append(macd_sig[-common_len:])
+        self.feat_names.append('macd_sig')
+        feat_list.append(macd_hist[-common_len:])
+        self.feat_names.append('macd_hist')
+        
+        feat_list.append(vol[-common_len:])
+        self.feat_names.append('vol')
+        
+        lag_arr = lag_feats[-common_len:]
+        for i, lag in enumerate(self.lags):
+            feat_list.append(lag_arr[:, i])
+            self.feat_names.append(f'lag_{lag}')
+        
+        ret_arr = rets[-common_len:]
+        for i, p in enumerate(self.ret_periods):
+            feat_list.append(ret_arr[:, i])
+            self.feat_names.append(f'ret_{p}')
+        
+        feats = np.column_stack(feat_list)
+        return feats, self.feat_names
+    
+
+    
+         
