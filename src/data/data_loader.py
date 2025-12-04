@@ -76,8 +76,6 @@ class M4Loader:
         train_row = df_train[df_train['V1'] == sid]
         if len(train_row) == 0:
             return None
-            
-        # Extract values (skipping V1 column)
         train_vals = train_row.iloc[0, 1:].dropna().values.astype(np.float64)
         
         test_vals = np.array([])
