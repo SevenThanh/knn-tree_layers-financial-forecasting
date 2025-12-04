@@ -41,3 +41,16 @@ class RollingNormalizer:
             self.stats.append((mu, std))
         
         return norm, start
+
+    def transform_multi(self, X):
+        n_t, n_f = X.shape
+        start = 0 if self.use_expand else self.win_sz
+        out_len = n_t - start
+        
+        norm = np.zeros((out_len, n_f))
+        
+        for f in range(n_f):
+            col, _ = self.fit_transform(X[:, f])
+            norm[:, f] = col
+            
+        return norm, start
