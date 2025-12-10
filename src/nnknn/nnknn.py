@@ -1,104 +1,121 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+    
+'''
+Original NNkNN for regression:
+- no topk selection layer as recommended by paper for regression
+- weight sharing off
+'''
 
 class FeatureDistanceLayer(nn.Module):
-    """
-    Compute weighted feature-wise distances between:
-       - query vector q:      [B, D]
-       - stored cases X:      [N, D]
-
-    Produces:
-       - distances: [B, N]
-    """
-    def __init__(self, num_features):
+    def __init__(self, num_features, num_cases, shared_weights=False):
         super().__init__()
-        # Feature weights (positive)
-        self.feature_weights = nn.Parameter(torch.ones(num_features))
-
+        self.shared_weights = shared_weights
+        #Feature weights for shared case: 1 weight per feature
+        if shared_weights:
+            self.feature_weights = nn.Parameter(torch.ones(num_features))
+        #Feature weights for unstared case: weights (with dimentions: num_features) for each case
+        else:
+            self.feature_weights = nn.Parameter(torch.ones(num_cases, num_features))
+    
     def forward(self, q, X):
-        # q: [B, D], X: [N, D]
-        B, D = q.shape
-        N = X.shape[0]
+        # dimensions
+        B, D = q.shape                                  # B: batch size, D: number of features
+        N = X.shape[0]                                  # N: number of cases
 
-        w = F.softplus(self.feature_weights)  # ensure positivity
+        # prepare tensors for broadcasting
+        q_exp = q.unsqueeze(1)                          # [B, 1, D]
+        X_exp = X.unsqueeze(0)                          # [1, N, D] 
 
-        # Expand for broadcasting
-        q_exp = q.unsqueeze(1).expand(B, N, D)     # [B, N, D]
-        X_exp = X.unsqueeze(0).expand(B, N, D)     # [B, N, D]
+        # L2 distance
+        delta = (q_exp - X_exp) ** 2       
 
-        # Weighted L1 distance (paper uses L1 or L2)
-        dist = torch.sum(w * torch.abs(q_exp - X_exp), dim=2)   # [B, N]
-        return dist
+        # linear combination of distances and weights
+        w = F.softplus(self.feature_weights)            # [D] for shared case, [N, D] for unshared case
+        if self.shared_weights: 
+            delta = delta * w.unsqueeze(0).unsqueeze(0) # [B, N, D]
+        else:
+            delta = delta * w.unsqueeze(0)              # [B, N, D]
 
+        return delta
 
 class CaseActivationLayer(nn.Module):
-    """
-    Converts distances → activations using a learned beta.
-    """
+    def __init__(self, num_features, num_cases, shared_weights=False):
+        super().__init__()
+        self.shared_weights = shared_weights
+
+        if shared_weights:
+            self.distance_weights = nn.Parameter(torch.randn(num_features) * 0.1)
+            self.ca_bias = nn.Parameter(torch.zeros(num_cases))
+        else:
+            self.distance_weights = nn.Parameter(torch.randn(num_cases, num_features) * 0.1)
+            self.ca_bias = nn.Parameter(torch.zeros(num_cases))
+
+    def forward(self, delta):
+        # delta dimensions
+        B, N, D = delta.shape
+
+        # linear combination of distances and distance weights
+        if self.shared_weights:
+            case_activations = torch.sum(
+                delta * self.distance_weights.unsqueeze(0).unsqueeze(0), 
+                dim=2
+            )                                                                           # [B, N]
+        else:
+            case_activations = torch.sum(
+                delta * self.distance_weights.unsqueeze(0), 
+                dim=2
+            )                                                                           # [B, N]
+
+        case_activations = case_activations + self.ca_bias.unsqueeze(0)                 # [B, N]
+        return torch.sigmoid(case_activations)                                          # [B, N]
+
+class TargetAdaptationLayer(nn.Module):
     def __init__(self):
         super().__init__()
-        self.beta = nn.Parameter(torch.tensor(1.0))  # inverse temperature
 
-    def forward(self, distances):
-        # soft activation: exp(-beta * distance)
-        beta = F.softplus(self.beta)
-        activations = torch.exp(-beta * distances)
-        return activations  # [B, N]
-
-
-class NNkNNRegression(nn.Module):
-    def __init__(self, stored_cases, stored_targets, k=10, out_dim=1):
+    def forward(self, case_activations, targets):
         """
-        stored_cases: [N, D] tensor of prototype cases
-        stored_targets: [N, out_dim] regression labels for each stored case
+        case_activations: [B, N]
+        targets:          [N, D] (same as X)
+        Returns:
+            y_hat: [B, D] predicted values per query
         """
+
+        # normalize activations per query
+        ca_normalized = case_activations / (case_activations.sum(dim=1, keepdim=True) + 1e-2)   # [B, N]
+
+        # weighted sum over cases
+        y_hat = ca_normalized @ targets                                                         # [B, N] @ [N, D] → [B, D]
+
+        return y_hat
+
+
+class NNKNN(nn.Module):
+    def __init__(self, num_features, num_cases, shared_weights=False):
         super().__init__()
+        self.feature_distance = FeatureDistanceLayer(num_features, num_cases)
+        self.case_activation = CaseActivationLayer(num_features, num_cases, shared_weights)
+        self.target_adaptation = TargetAdaptationLayer()
 
-        self.X = nn.Parameter(stored_cases, requires_grad=False)
-        self.y = nn.Parameter(stored_targets, requires_grad=False)
-
-        self.k = k
-        self.D = stored_cases.shape[1]
-        self.out_dim = out_dim
-
-        # Layers
-        self.feature_distance = FeatureDistanceLayer(self.D)
-        self.case_activation = CaseActivationLayer()
-
-        # Optional small MLP for final regression
-        self.output_layer = nn.Sequential(
-            nn.Linear(out_dim, 32),
-            nn.ReLU(),
-            nn.Linear(32, out_dim)
-        )
-
-    def forward(self, q):
+    def forward(self, queries, cases, targets):
         """
-        q: [B, D]
-        returns predictions: [B, out_dim]
+        queries: [B, D] query batch
+        cases:   [N, D] stored cases
+        targets: [N, C] regression targets for cases
+        Returns:
+            y_hat: [B, C] predictions
+            activations: [B, N]
+            distances: [B, N, D]
         """
+        # 1. Feature distances
+        delta = self.feature_distance(queries, cases)  # [B, N, D]
+        # 2. Case activations
+        activations = self.case_activation(delta)     # [B, N]
+        # 3. Weighted sum for regression
+        y_hat = self.target_adaptation(activations, targets)  # [B, C]
 
-        # Step 1 — Compute weighted feature distance
-        dist = self.feature_distance(q, self.X)       # [B, N]
+        return y_hat, activations, delta
 
-        # Step 2 — Convert to case activation
-        act = self.case_activation(dist)              # [B, N]
 
-        # Step 3 — Soft k-NN: pick top-k activations (soft, differentiable)
-        topk_vals, topk_idx = torch.topk(act, self.k, dim=1)  # [B, k]
-
-        # Normalize weights to sum to 1
-        knn_weights = F.softmax(topk_vals, dim=1)            # [B, k]
-
-        # Gather k target neighbors
-        yk = self.y[topk_idx]                                # [B, k, out_dim]
-
-        # Weighted sum → regression prediction
-        pred = torch.sum(knn_weights.unsqueeze(2) * yk, dim=1)  # [B, out_dim]
-
-        # Optional refinement MLP
-        pred = self.output_layer(pred)
-
-        return pred
