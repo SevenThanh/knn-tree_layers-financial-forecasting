@@ -10,7 +10,6 @@ class Pipeline:
         self.n_comp = n_comp
         self.train_pct = train_pct
         self.val_pct = val_pct
-        
         self.feat_builder = FeatureBuilder()
         self.normalizer = RollingNormalizer(win_sz=win_sz)
         self.pca = TemporalPCA(n_comp=n_comp)
