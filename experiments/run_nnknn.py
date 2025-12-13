@@ -177,6 +177,36 @@ def main():
     
     trainer, history = train_nnknn(combined, args)
     
+    # === DIAGNOSTIC: Check what's happening with activations ===
+    import torch
+    model = trainer.model
+    
+    print("\n=== DIAGNOSTIC INFO ===")
+    print("Feature weights (min, max):", 
+          model.feature_distance.feature_weights.min().item(), 
+          model.feature_distance.feature_weights.max().item())
+    print("Distance weights (min, max):", 
+          model.case_activation.distance_weights.min().item(),
+          model.case_activation.distance_weights.max().item())
+    
+    # Check activation distribution
+    X_sample = trainer._to_tensor(combined['X_test'][:10])
+    with torch.no_grad():
+        delta = model.feature_distance(X_sample, trainer.cases)
+        acts = model.case_activation(delta)
+        print("Activation range (min, max):", acts.min().item(), acts.max().item())
+        print("Activation mean:", acts.mean().item())
+        print("Activation std:", acts.std().item())
+        
+        # Check what sigmoid input looks like
+        if model.case_activation.shared_weights:
+            ca_input = torch.sum(delta * model.case_activation.distance_weights, dim=2)
+        else:
+            ca_input = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0), dim=2)
+        ca_input = ca_input + model.case_activation.ca_bias.unsqueeze(0)
+        print("Sigmoid INPUT range:", ca_input.min().item(), ca_input.max().item())
+    # === END DIAGNOSTIC ===
+    
     metrics, y_pred = evaluate_model(trainer, combined)
     
     explanations = run_explanations(trainer, combined)
