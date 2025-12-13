@@ -19,7 +19,6 @@ class Pipeline:
     
     def process_series(self, ts, sid=None):
         feats, self.feat_names = self.feat_builder.build(ts)
-        
         norm_feats, start_idx = self.normalizer.transform_multi(feats)
         
         if not self.normalizer.verify_no_lookahead():
@@ -27,14 +26,16 @@ class Pipeline:
         
         offset = len(ts) - len(feats) + start_idx
         targets = ts[offset:]
+        target_norm = RollingNormalizer(win_sz=self.win_sz)
+        targets_normalized, t_start = target_norm.fit_transform(targets)
+        norm_feats = norm_feats[t_start:]
         
-        min_len = min(len(norm_feats), len(targets))
+        min_len = min(len(norm_feats), len(targets_normalized))
         norm_feats = norm_feats[:min_len]
-        targets = targets[:min_len]
+        targets_normalized = targets_normalized[:min_len]
         
         X_tr, X_val, X_te = temporal_split(norm_feats, self.train_pct, self.val_pct)
-        y_tr, y_val, y_te = temporal_split(targets, self.train_pct, self.val_pct)
-        
+        y_tr, y_val, y_te = temporal_split(targets_normalized, self.train_pct, self.val_pct)
         self.pca.fit(X_tr)
         self.fitted = True
         
