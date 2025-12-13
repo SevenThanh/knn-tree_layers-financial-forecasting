@@ -127,3 +127,22 @@ class NNKNNExplainer:
         
         return explanations
     
+    def format_explanation(self, exp):
+        lines = []
+        lines.append(f"Prediction: {exp['prediction']:.4f}")
+        lines.append(f"Based on {len(exp['neighbors'])} nearest neighbors:")
+        
+        for i, nb in enumerate(exp['neighbors']):
+            lines.append(f"  {i+1}. Case {nb['case_idx']} | Target: {nb['target']:.4f} | Contrib: {nb['contribution_pct']:.1f}%")
+        
+        lines.append(f"Neighbor mean: {exp['neighbor_target_mean']:.4f}, std: {exp['neighbor_target_std']:.4f}")
+        return "\n".join(lines)
+        
+    def compute_consistency_score(self, explanations):
+        stds = [exp['neighbor_target_std'] for exp in explanations]
+        return {
+            'mean_neighbor_std': float(np.mean(stds)),
+            'median_neighbor_std': float(np.median(stds)),
+            'max_neighbor_std': float(np.max(stds)),
+            'min_neighbor_std': float(np.min(stds))
+        }

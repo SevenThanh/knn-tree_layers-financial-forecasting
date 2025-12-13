@@ -1,8 +1,8 @@
 import numpy as np
-from data_loader import M4Loader, create_synthetic_m4
-from rolling_norm import RollingNormalizer
-from tech_indicators import FeatureBuilder
-from pca_transform import TemporalPCA, temporal_split
+from .data_loader import M4Loader, create_synthetic_m4
+from .rolling_norm import RollingNormalizer
+from .tech_indicators import FeatureBuilder
+from .pca_transform import TemporalPCA, temporal_split
 
 class Pipeline:
     def __init__(self, win_sz=30, n_comp=10, train_pct=0.7, val_pct=0.15):
