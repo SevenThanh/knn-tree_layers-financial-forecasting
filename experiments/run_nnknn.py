@@ -102,6 +102,7 @@ def train_nnknn(combined, args):
     trainer = NNKNNTrainer(
         n_feat=n_feat,
         n_cases=n_cases,
+        shared_wts=True,  
         lr=args.lr
     )
     

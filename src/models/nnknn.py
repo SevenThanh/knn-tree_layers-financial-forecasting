@@ -45,7 +45,6 @@ class CaseActivationLayer(nn.Module):
     def forward(self, delta):
         B, N, D = delta.shape
 
-        # Force weights negative via -softplus (paper says distance weights <= 0)
         neg_weights = -F.softplus(self.distance_weights)
 
         if self.shared_weights:
@@ -53,10 +52,7 @@ class CaseActivationLayer(nn.Module):
         else:
             case_dist = torch.sum(delta * neg_weights.unsqueeze(0), dim=2)
 
-        # Add positive bias (baseline activation)
         case_activations = case_dist + F.softplus(self.ca_bias).unsqueeze(0)
-        
-        # Temperature scaling to control sharpness
         case_activations = case_activations / self.temp
 
         return torch.sigmoid(case_activations)

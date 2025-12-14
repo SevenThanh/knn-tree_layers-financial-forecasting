@@ -44,7 +44,8 @@ class NNKNNTrainer:
         self.model = NNKNN(
             num_features=n_feat,
             num_cases=n_cases,
-            shared_weights=shared_wts
+            shared_weights=shared_wts,  
+            temp=10.0 
         ).to(self.device)
         
         self.cases = None     
