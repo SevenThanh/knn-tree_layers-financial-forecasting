@@ -44,9 +44,9 @@ class NNKNNTrainer:
         self.model = NNKNN(
             num_features=n_feat,
             num_cases=n_cases,
-            shared_weights=shared_wts,  
-            temp=10.0 
+            shared_weights=shared_wts
         ).to(self.device)
+
         
         self.cases = None     
         self.targets = None   
@@ -67,6 +67,13 @@ class NNKNNTrainer:
         """
         X = np.asarray(X, dtype=np.float32)
         y = np.asarray(y, dtype=np.float32)
+        
+        MAX_CASES = 3000
+        if X.shape[0] > MAX_CASES:
+            print(f"⚠️  Subsampling {X.shape[0]} → {MAX_CASES} cases")
+            idx = np.random.choice(X.shape[0], MAX_CASES, replace=False)
+            X = X[idx]
+            y = y[idx]
         
         if y.ndim == 1:
             y = y.reshape(-1, 1)
@@ -131,6 +138,7 @@ class NNKNNTrainer:
             loss = self.loss_fn(y_pred, y_batch)
             
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optim.step()
             
             total_loss += loss.item()

@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.data.data_loader import create_synthetic_m4
+from src.data.data_loader import create_synthetic_m4, M4Loader
 from src.data.pipeline import Pipeline
 from src.evaluation.metrics import eval_all
 
@@ -32,7 +32,7 @@ def parse_args():
                    help='Training epochs')
     p.add_argument('--batch_sz', type=int, default=32,
                    help='Batch size')
-    p.add_argument('--lr', type=float, default=0.01,
+    p.add_argument('--lr', type=float, default=0.05,
                    help='Learning rate')
     p.add_argument('--patience', type=int, default=10,
                    help='Early stopping patience')
@@ -48,7 +48,7 @@ def load_data(args):
         loader = M4Loader()
         data = loader.load_category(
             args.category, 
-            min_len=200, 
+            min_len=100, 
             max_n=args.n_series
         )
         if len(data) == 0:
@@ -181,16 +181,15 @@ def main():
     # === DIAGNOSTIC: Check what's happening with activations ===
     import torch
     model = trainer.model
-    
+
     print("\n=== DIAGNOSTIC INFO ===")
     print("Feature weights (min, max):", 
-          model.feature_distance.feature_weights.min().item(), 
-          model.feature_distance.feature_weights.max().item())
+        model.feature_distance.feature_weights.min().item(), 
+        model.feature_distance.feature_weights.max().item())
     print("Distance weights (min, max):", 
-          model.case_activation.distance_weights.min().item(),
-          model.case_activation.distance_weights.max().item())
-    
-    # Check activation distribution
+        model.case_activation.distance_weights.min().item(),
+        model.case_activation.distance_weights.max().item())
+
     X_sample = trainer._to_tensor(combined['X_test'][:10])
     with torch.no_grad():
         delta = model.feature_distance(X_sample, trainer.cases)
@@ -199,14 +198,15 @@ def main():
         print("Activation mean:", acts.mean().item())
         print("Activation std:", acts.std().item())
         
-        # Check what sigmoid input looks like
         if model.case_activation.shared_weights:
-            ca_input = torch.sum(delta * model.case_activation.distance_weights, dim=2)
+            case_dist = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0).unsqueeze(0), dim=2)
         else:
-            ca_input = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0), dim=2)
-        ca_input = ca_input + model.case_activation.ca_bias.unsqueeze(0)
+            case_dist = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0), dim=2)
+        ca_input = case_dist + model.case_activation.ca_bias.unsqueeze(0)
         print("Sigmoid INPUT range:", ca_input.min().item(), ca_input.max().item())
     # === END DIAGNOSTIC ===
+
+
     
     metrics, y_pred = evaluate_model(trainer, combined)
     

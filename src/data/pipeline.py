@@ -3,6 +3,7 @@ from .data_loader import M4Loader, create_synthetic_m4
 from .rolling_norm import RollingNormalizer
 from .tech_indicators import FeatureBuilder
 from .pca_transform import TemporalPCA, temporal_split
+from sklearn.preprocessing import StandardScaler
 
 class Pipeline:
     def __init__(self, win_sz=30, n_comp=10, train_pct=0.7, val_pct=0.15):
@@ -89,6 +90,11 @@ class Pipeline:
         y_tr = np.concatenate([r['y_train'] for r in results])
         y_val = np.concatenate([r['y_val'] for r in results])
         y_te = np.concatenate([r['y_test'] for r in results])
+        
+        scaler = StandardScaler()
+        X_tr = scaler.fit_transform(X_tr)
+        X_val = scaler.transform(X_val)
+        X_te = scaler.transform(X_te)
         
         return {
             'X_train': X_tr,
