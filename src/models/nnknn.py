@@ -47,11 +47,11 @@ class CaseActivationLayer(nn.Module):
         
         # for large case bases, need strong pos bias to offset neg distances
         if num_cases > 2000:
-            init_bias = 3.0  # strong pos bias for 3k+ cases
+            init_bias = 0.0  # strong pos bias for 3k+ cases
         elif num_cases > 1000:
-            init_bias = 2.0
+            init_bias = 0.0
         else:
-            init_bias = 1.0
+            init_bias = 0.0
         
         if shared_weights:
             self.distance_weights = nn.Parameter(torch.randn(num_features) * 0.05 - 0.15)
@@ -67,20 +67,24 @@ class CaseActivationLayer(nn.Module):
         # delta dimensions
         B, N, D = delta.shape
 
+        # FORCE NEGATIVE WEIGHTS: Ensure distance acts as a penalty
+        # We use -abs(w) so that larger distance always reduces activation
+        w = -torch.abs(self.distance_weights)
+
         # linear combination of distances and distance weights
         if self.shared_weights:
             case_activations = torch.sum(
-                delta * self.distance_weights.unsqueeze(0).unsqueeze(0), 
+                delta * w.unsqueeze(0).unsqueeze(0), 
                 dim=2
             )                                                                           # [B, N]
         else:
             case_activations = torch.sum(
-                delta * self.distance_weights.unsqueeze(0), 
+                delta * w.unsqueeze(0), 
                 dim=2
             )                                                                           # [B, N]
 
         case_activations = case_activations + self.ca_bias.unsqueeze(0)                 # [B, N]
-        return torch.sigmoid(case_activations)                                          # [B, N]
+        return torch.sigmoid(case_activations)                                          # [B, N]                                         # [B, N]
 
 class TargetAdaptationLayer(nn.Module):
     def __init__(self):

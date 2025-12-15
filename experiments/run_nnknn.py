@@ -200,8 +200,10 @@ def main():
         print("Activation std:", acts.std().item())
         
         if model.case_activation.shared_weights:
+            w = -torch.abs(model.case_activation.distance_weights)
             case_dist = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0).unsqueeze(0), dim=2)
         else:
+            w = -torch.abs(model.case_activation.distance_weights)
             case_dist = torch.sum(delta * model.case_activation.distance_weights.unsqueeze(0), dim=2)
         ca_input = case_dist + model.case_activation.ca_bias.unsqueeze(0)
         print("Sigmoid INPUT range:", ca_input.min().item(), ca_input.max().item())
