@@ -48,6 +48,7 @@ def load_data(args):
         loader = M4Loader()
         data = loader.load_category(
             args.category, 
+            freq='Daily',
             min_len=100, 
             max_n=args.n_series
         )

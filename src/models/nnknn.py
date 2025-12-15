@@ -110,7 +110,7 @@ class NNKNN(nn.Module):
         self.case_activation = CaseActivationLayer(num_features, num_cases, shared_weights)
         self.target_adaptation = TargetAdaptationLayer()
 
-    def forward(self, queries, cases, targets):
+    def forward(self, queries, cases, targets, q_indices=None):
         """
         queries: [B, D] query batch
         cases:   [N, D] stored cases
@@ -124,6 +124,10 @@ class NNKNN(nn.Module):
         delta = self.feature_distance(queries, cases)  # [B, N, D]
         # 2. Case activations
         activations = self.case_activation(delta)     # [B, N]
+        if q_indices is not None:
+            mask = torch.ones_like(activations) 
+            mask.scatter_(1, q_indices.view(-1, 1), 0.0)
+            activations = activations * mask
         # 3. Weighted sum for regression
         y_hat = self.target_adaptation(activations, targets)  # [B, C]
 

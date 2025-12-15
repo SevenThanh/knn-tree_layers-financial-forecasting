@@ -68,7 +68,7 @@ class NNKNNTrainer:
         X = np.asarray(X, dtype=np.float32)
         y = np.asarray(y, dtype=np.float32)
         
-        MAX_CASES = 3000
+        MAX_CASES = 20000
         if X.shape[0] > MAX_CASES:
             print(f"⚠️  Subsampling {X.shape[0]} → {MAX_CASES} cases")
             idx = np.random.choice(X.shape[0], MAX_CASES, replace=False)
@@ -132,7 +132,7 @@ class NNKNNTrainer:
             self.optim.zero_grad()
             
             y_pred, activations, distances = self.model(
-                X_batch, self.cases, self.targets
+                X_batch, self.cases, self.targets, q_indices=batch_idx
             )
             
             loss = self.loss_fn(y_pred, y_batch)
