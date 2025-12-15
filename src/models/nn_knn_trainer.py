@@ -68,7 +68,7 @@ class NNKNNTrainer:
         X = np.asarray(X, dtype=np.float32)
         y = np.asarray(y, dtype=np.float32)
         
-        MAX_CASES = 20000
+        MAX_CASES = 100000
         if X.shape[0] > MAX_CASES:
             print(f"⚠️  Subsampling {X.shape[0]} → {MAX_CASES} cases")
             idx = np.random.choice(X.shape[0], MAX_CASES, replace=False)
