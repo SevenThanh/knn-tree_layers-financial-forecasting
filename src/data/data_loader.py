@@ -17,9 +17,7 @@ class M4Loader:
     def _load_info(self):
         if self.info is not None:
             return self.info
-
         fpath = self.data_dir / "m4_info.csv"
-        
         if not fpath.exists():
             print(f"Error: {fpath} not found.")
             return None
